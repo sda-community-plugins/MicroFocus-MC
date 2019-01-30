@@ -41,7 +41,7 @@ String mcServerUrl = props.notNull('serverUrl')
 String mcUsername = props.notNull('username')
 String mcPassword = props.notNull('password')
 String appId = props.notNull('appId')
-String deviceId = props.notNull("deviceId")
+String deviceIds = props.notNull("deviceIds")
 boolean instrumented = props.optionalBoolean("instrumented", false)
 boolean reserveDevice = props.optionalBoolean("reserveDevice", false)
 Integer reservationTime = props.optionalInt("reservationTime", 30)
@@ -63,7 +63,7 @@ println "MC Server URL: ${mcServerUrl}"
 println "MC Username: ${mcUsername}"
 println "MC Password: ${mcPassword.replaceAll(".", "*")}"
 println "Application Id: ${appId}"
-println "Device Id: ${deviceId}"
+println "Device Ids: ${deviceIds}"
 println "Instrumented: ${instrumented}"
 println "Reserve Device: ${reserveDevice}"
 println "Reservation Time: ${reservationTime}"
@@ -83,49 +83,53 @@ println "----------------------------------------"
 try {
     MCHelper mcHelper = new MCHelper(mcServerUrl, mcUsername, mcPassword, proxyUrl, tenantId, debugMode)
 
-    if (reserveDevice) {
-        // check if admin
-        def jsonUser = new JsonSlurper().parseText(mcHelper.currentUser())
-        if (!jsonUser.isAdmin) {
-            println "User ${jsonUser.name} is not an admin, skipping device reservation..."
-        } else {
+    String[] deviceIdList = deviceIds.split(',')
+    for (String deviceId : deviceIdList) {
+        if (debugMode) { println "DEBUG - Retrieving details of device id: ${deviceId}" }
+        if (reserveDevice) {
+            // check if admin
+            def jsonUser = new JsonSlurper().parseText(mcHelper.currentUser())
+            if (!jsonUser.isAdmin) {
+                println "User ${jsonUser.name} is not an admin, skipping device reservation..."
+            } else {
 
-            DateFormat dateFormat = new SimpleDateFormat("yyyy-mm-dd'T'kk:mm:ss'Z'")
-            DateFormat reservationFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssXXX")
+                DateFormat dateFormat = new SimpleDateFormat("yyyy-mm-dd'T'kk:mm:ss'Z'")
+                DateFormat reservationFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssXXX")
 
-            def jsonReservations = new JsonSlurper().parseText(mcHelper.reservations())
-            jsonReservations.each { data ->
-                if (debugMode) println "INFO - Found Reservation Id: ${data.reservationUid} for device \"${data.deviceCapabilities.deviceName}\" from ${data.startTime} to ${data.endTime}"
-                Date min = dateFormat.parse(data.startTime)
-                Date max = dateFormat.parse(data.endTime)
-                if (now.after(min) && now.before(max)) {
-                    if (data.reservedForUser.name != mcUsername) {
-                        println "Device is already reserved by ${data.reservedForUser.name}"
-                    } else {
-                        println "Deleting current reservation"
-                        mcHelper.deleteReservationByID(data.reservationUid)
+                def jsonReservations = new JsonSlurper().parseText(mcHelper.reservations())
+                jsonReservations.each { data ->
+                    if (debugMode) println "INFO - Found Reservation Id: ${data.reservationUid} for device \"${data.deviceCapabilities.deviceName}\" from ${data.startTime} to ${data.endTime}"
+                    Date min = dateFormat.parse(data.startTime)
+                    Date max = dateFormat.parse(data.endTime)
+                    if (now.after(min) && now.before(max)) {
+                        if (data.reservedForUser.name != mcUsername) {
+                            println "Device is already reserved by ${data.reservedForUser.name}"
+                        } else {
+                            println "Deleting current reservation"
+                            mcHelper.deleteReservationByID(data.reservationUid)
+                        }
                     }
                 }
+
+                Date startDate = new Date()
+                Calendar cal = Calendar.getInstance()
+                cal.setTime(startDate)
+                cal.add(Calendar.MINUTE, reservationTime)
+                Date endDate = cal.getTime()
+                println "Reserving device between " + dateFormat.format(startDate) + " and " + dateFormat.format(endDate)
+                def jsonReservation = new JsonSlurper().parseText(mcHelper.reserveDeviceByID(reservationFormat.format(startDate),
+                        reservationFormat.format(endDate), deviceId, false))
+                def reservationId = jsonReservation.reservationUid
+                println "Made reservation with id: ${reservationId}"
             }
-
-            Date startDate = new Date()
-            Calendar cal = Calendar.getInstance()
-            cal.setTime(startDate)
-            cal.add(Calendar.MINUTE, reservationTime)
-            Date endDate = cal.getTime()
-            println "Reserving device between " + dateFormat.format(startDate) + " and " + dateFormat.format(endDate)
-            def jsonReservation = new JsonSlurper().parseText(mcHelper.reserveDeviceByID(reservationFormat.format(startDate),
-                    reservationFormat.format(endDate), deviceId, false))
-            def reservationId = jsonReservation.reservationUid
-            println "Made reservation with id: ${reservationId}"
         }
-    }
 
-    def jsonInstall = new JsonSlurper().parseText(
-            mcHelper.installAppByUUIDAndDeviceID(appId, deviceId, instrumented, jobId)
-    )
-    def appData = jsonInstall?.app
-    println "Installed application \"${appData.name}\" version: ${appData.version} - counter: ${appData.counter}"
+        def jsonInstall = new JsonSlurper().parseText(
+                mcHelper.installAppByUUIDAndDeviceID(appId, deviceId, instrumented, jobId)
+        )
+        def appData = jsonInstall?.app
+        println "Installed application \"${appData.name}\" version: ${appData.version} - counter: ${appData.counter} on device: ${deviceId}"
+    }
 
 } catch (StepFailedException e) {
     println "ERROR: ${e.message}"

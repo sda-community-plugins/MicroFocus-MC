@@ -6,9 +6,14 @@ Mobile Center as part of a Deployment Automation workflow.
 This plugin is a work in progress but it is intended to provide the following steps:
 
 * [x] **Upload Application** - Upload an application into Mobile Center
-* [x] **Install Application ** - Install an application onto a device
-* [x] **Uninstall Application** - Uninstall an application from a device
-* [x] **Get Device Status** - Get the status of a device and set properties for "connected" and "reserved".
+* [x] **Install Application** - Install an application onto one or more devices
+* [x] **Uninstall Application** - Uninstall an application from one or more devices
+* [x] **Get Devices** - Get a list of one or more devices based on platform, api, availability and so on
+* [x] **Get Device Status** - Get the status of a specific device and set properties for "connected" and "reserved".
+
+**Note**: this plugin is designed to execute tests in Mobile Center via built in Appium server. You could also use the 
+Jenkins Mobile Center plugin to invoke UFT tests once the application has been uploaded to Mobile Center using the 
+"Upload Application" step above.
 
 ### Installing the plugin
  

@@ -1,5 +1,5 @@
 // --------------------------------------------------------------------------------
-// Uninstall an Application from a Device
+// Get a list of one or more devices based on platform, api, availability and so on.
 // --------------------------------------------------------------------------------
 
 import com.serena.air.plugin.mc.*
@@ -37,11 +37,13 @@ File workDir = new File('.').canonicalFile
 String mcServerUrl = props.notNull('serverUrl')
 String mcUsername = props.notNull('username')
 String mcPassword = props.notNull('password')
-String appId = props.notNull('appId')
-String deviceIds = props.notNull("deviceIds")
+String deviceNameFilter = props.optional('deviceNameFilter')
+String platformNameFilter = props.optional("platformNameFilter")
+String platformVersionFilter = props.optional("platformVersionFilter")
+boolean connectedFilter = props.optionalBoolean("connectedFilter", true)
+boolean reservedForMeFilter = props.optionalBoolean("reservedForMeFilter", false)
 boolean useProxy = props.optionalBoolean("useProxy", false)
 String proxyUrl = props.optional("proxyUrl")
-String jobId = props.optional("jobId")
 String tenantId = props.optional("tenantId")
 boolean debugMode = props.optionalBoolean("debugMode", false)
 
@@ -56,14 +58,15 @@ println "Working directory: ${workDir.canonicalPath}"
 println "MC Server URL: ${mcServerUrl}"
 println "MC Username: ${mcUsername}"
 println "MC Password: ${mcPassword.replaceAll(".", "*")}"
-println "Application Id: ${appId}"
-println "Device Ids: ${deviceIds}"
+println "Device Name Filter: ${deviceNameFilter}"
+println "Platform Name Filter: ${platformNameFilter}"
+println "Platform Version Filter: ${platformVersionFilter}"
+println "Connected Filter: ${connectedFilter}"
+println "Reserved For Me Filter: ${reservedForMeFilter}"
 println "Use Proxy: ${useProxy}"
 println "Proxy URL: ${proxyUrl}"
 println "Tenant Id: ${tenantId}"
 if (tenantId) { println "INFO - Tenant Id is not currently supported - ignoring"; tenantId = "" }
-println "Job Id: ${jobId} "
-if (jobId) { println "INFO - Job Id is not currently supported - ignoring"; jobId = ""}
 println "Debug mode value: ${debugMode}"
 if (debugMode) { props.setDebugLoggingMode() }
 
@@ -71,17 +74,28 @@ println "----------------------------------------"
 println "-- STEP EXECUTION"
 println "----------------------------------------"
 
+List<String> deviceIds = new ArrayList<String>()
+
 try {
     MCHelper mcHelper = new MCHelper(mcServerUrl, mcUsername, mcPassword, proxyUrl, tenantId, debugMode)
 
-    String[] deviceIdList = deviceIds.split(',')
-    for (String deviceId : deviceIdList) {
-        def jsonUninstall = new JsonSlurper().parseText(
-                mcHelper.uninstallAppByUUIDAndDeviceID(appId, deviceId, jobId)
-        )
-        println "Uninstalled application from device id: ${deviceId}"
+    def jsonDevices = new JsonSlurper().parseText(mcHelper.deviceContent())
+    jsonDevices.each { data ->
+        if (debugMode) println "Checking device: ${data.udid}"
+        String platformName = data.platformName
+        String platformVersion = data.platformVersion
+        String deviceName = data.deviceName
+        String udid = data.udid
+        String deviceType = data.deviceType
+        boolean connected = data.connected
+        if (connectedFilter && !connected) return
+        if (deviceNameFilter && !deviceName.contains(deviceNameFilter)) return
+        if (platformNameFilter && !platformName.equalsIgnoreCase(platformNameFilter)) return
+        if (platformVersionFilter && !platformVersion.equalsIgnoreCase(platformVersionFilter)) return
+        // TODO: check for reserved
+        println "Found (${deviceType}) id: ${udid}, name: ${deviceName}, platform: ${platformName}-${platformVersion}"
+        deviceIds.add(udid)
     }
-
 
 } catch (StepFailedException e) {
     println "ERROR: ${e.message}"
@@ -92,8 +106,12 @@ println "----------------------------------------"
 println "-- STEP OUTPUTS"
 println "----------------------------------------"
 
-println "Setting \"appId\" output property to \"${appId}\""
-apTool.setOutputProperty("appId", appId)
+if (deviceIds.size() > 0) {
+    println "Setting \"deviceIds\" output property to \"${deviceIds.join(',')}\""
+} else {
+    println "No matching devices found"
+}
+apTool.setOutputProperty("deviceIds", deviceIds.join(','))
 apTool.storeOutputProperties()
 
 //

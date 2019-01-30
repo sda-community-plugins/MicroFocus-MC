@@ -11,6 +11,82 @@
     </header>
 
     <!-- ==================================== -->
+    <!-- Get a list of devices                -->
+    <!-- ==================================== -->
+    <step-type name="Get Devices">
+        <description>Get a list of one or more devices based on platform, api, availability and so on.</description>
+        <properties>
+            <property name="deviceNameFilter">
+                <property-ui type="textBox"
+                             label="Device Name Filter"
+                             description="Text string used to filter devices by name."/>
+            </property>
+            <property name="platformNameFilter">
+                <property-ui type="selectBox" label="Platform Name"
+                             description="The platform of the devices."/>
+                <value label="Android">ANDROID</value>
+                <value label="iOS">APPLE</value>
+            </property>
+            <property name="platformVersionFIlter">
+                <property-ui type="textBox" label="Platform Version"
+                             description="The platform version of the devices."/>
+            </property>
+            <property name="connectedFilter">
+                <property-ui type="checkBox" label="Connected" default-value="true"
+                             description="Select to only get connected devices."/>
+            </property>
+            <property name="reservedForMeFilter">
+                <property-ui type="checkBox" label="Reserved For Me"
+                             description="If the devices are reserved make sure it is reserved for the current user."/>
+            </property>
+            <property name="serverUrl" required="true">
+                <property-ui type="textBox" default-value="${p:system/mc.serverUrl}" label="MC Server URL"
+                             description="The Mobile Center server URL, e.g. https://server:80."/>
+            </property>
+            <property name="username" required="true">
+                <property-ui type="textBox" default-value="${p:system/mc.username}" label="MC Username"
+                             description="The username to connect to the Mobile Center server."/>
+            </property>
+            <property name="password" required="true">
+                <property-ui type="secureBox" default-value="${p:system/mc.password}" label="MC Password"
+                             description="The password to connect to the Mobile Center server."/>
+            </property>
+            <property name="useProxy">
+                <property-ui type="checkBox" label="Use Proxy"
+                             description="Connect to Mobile Center through a proxy server."/>
+            </property>
+            <property name="proxyUrl">
+                <property-ui type="textBox" label="Proxy Server"
+                             description="The URL of the Proxy Server to connect to, e.g. https://proxy:8080."/>
+            </property>
+            <property name="tenantId">
+                <property-ui type="textBox" hidden="true" label="Tenant Id"
+                             description="The Mobile Center server Tenant Id."/>
+            </property>
+            <property name="debugMode">
+                <property-ui type="checkBox" label="Debug Output" hidden="true"
+                             description="Select this option to display debug output during execution."/>
+            </property>
+        </properties>
+        <post-processing><![CDATA[
+            if (properties.get("exitCode") != 0) {
+                properties.put(new java.lang.String("Status"), new java.lang.String("Failure"));
+            }
+            else {
+                properties.put("Status", "Success");
+            }
+        ]]>
+        </post-processing>
+        <command program="${GROOVY_HOME}/bin/groovy">
+            <arg value="-cp"/>
+            <arg path="classes:lib/*"/>
+            <arg file="get_devices.groovy"/>
+            <arg file="${PLUGIN_INPUT_PROPS}"/>
+            <arg file="${PLUGIN_OUTPUT_PROPS}"/>
+        </command>
+    </step-type>
+
+    <!-- ==================================== -->
     <!--  Upload Application                  -->
     <!-- ==================================== -->
     <step-type name="Upload Application">
@@ -87,17 +163,17 @@
     <!--  Install Application                 -->
     <!-- ==================================== -->
     <step-type name="Install Application">
-        <description>Install an application onto a device.</description>
+        <description>Install an application onto one or more device.s</description>
         <properties>
             <property name="appId" required="true">
                 <property-ui type="textBox"
-                             label="Application Id" default-value="${p:prevStep/appId}"
+                             label="Application Id" default-value="${p:Upload Application/appId}"
                              description="The unique id of the application to install."/>
             </property>
-            <property name="deviceId">
+            <property name="deviceIds">
                 <property-ui type="textBox"
-                             label="Device Id" default-value="${p:environment/mc.deviceId}"
-                             description="The unique id of the device to install on to."/>
+                             label="Device Id" default-value="${p:Get Devices/deviceIds}"
+                             description="A list of unique id of the device to install on to."/>
             </property>
             <property name="instrumented">
                 <property-ui type="checkBox" label="Instrumented"
@@ -105,7 +181,7 @@
             </property>
             <property name="reserveDevice">
                 <property-ui type="checkBox" label="Reserve Device"
-                             description="Reserve the device for installation and testing for a period of time"/>
+                             description="Reserve the devices for installation and testing for a period of time"/>
             </property>
             <property name="reservationTime">
                 <property-ui type="textBox" default-value="30" label="Reservation Time"
@@ -166,17 +242,17 @@
     <!--  Uninstall Application               -->
     <!-- ==================================== -->
     <step-type name="Uninstall Application">
-        <description>Uninstall an application from a device.</description>
+        <description>Uninstall an application from one or more devices.</description>
         <properties>
             <property name="appId" required="true">
                 <property-ui type="textBox"
-                             label="Application Id" default-value="${p:prevStep/appId}"
-                             description="The unique id of the application to uninstall."/>
+                             label="Application Id" default-value="${p:Upload Application/appId}"
+                             description="The unique id of the application to install."/>
             </property>
-            <property name="deviceId">
+            <property name="deviceIds">
                 <property-ui type="textBox"
-                             label="Device Id" default-value="${p:environment/mc.deviceId}"
-                             description="The unique id of the device to uninstall from."/>
+                             label="Device Id" default-value="${p:Get Devices/deviceIds}"
+                             description="A list of unique id of the device to install on to."/>
             </property>
             <property name="serverUrl" required="true">
                 <property-ui type="textBox" default-value="${p:system/mc.serverUrl}" label="MC Server URL"
